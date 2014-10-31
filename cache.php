@@ -222,7 +222,7 @@
 							<td><?=$item['full_path']?></td>
 							<td><?=$item['hits']?></td>
 							<td><?=human_size($item['memory_consumption'])?></td>
-							<td><a href="?action=op_delete&selector=<?=urlencode('^'.$item['full_path'].'$')?>">Delete</a>
+							<td><a href="?action=op_delete&selector=<?=urlencode('^'.$item['full_path'].'$')?>">Delete</a></td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
@@ -251,6 +251,12 @@
 					<button type="submit" name="action" value="apc_delete">Delete</button>
 				</form>
 			</div>
+			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apc_view' ): ?>
+			<div>
+				<h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
+				<pre><?php var_dump( apc_fetch(urldecode($_GET['selector'])) ); ?></pre>
+			</div>
+			<?php endif; ?>
 			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apc_select' ): ?>
 			<div>
 				<h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
@@ -277,7 +283,10 @@
 							<td><?=human_size($item['mem_size'])?></td>
 							<td><?=$item['ttl']?></td>
 							<td><?=date('Y-m-d H:i', $item['mtime'] + $item['ttl'] )?></td>
-							<td><a href="?action=apc_delete&selector=<?=urlencode('^'.$item['key'].'$')?>">Delete</a>
+							<td>
+								<a href="?action=apc_delete&selector=<?=urlencode('^'.$item['key'].'$')?>">Delete</a>
+								<a href="?action=apc_view&selector=<?=urlencode($item['key'])?>">View</a>
+							</td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>

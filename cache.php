@@ -245,10 +245,12 @@
 					</label>
 				</form>
 				<form action="?" method="GET">
-					<label>Key(s):</label>
-					<input name="selector" type="text" value="" placeholder=".*" />
+					<label>Key(s):
+						<input name="selector" type="text" value="" placeholder=".*" />
+					</label>
 					<button type="submit" name="action" value="apc_select">Select</button>
 					<button type="submit" name="action" value="apc_delete">Delete</button>
+					<label><input type="checkbox" name="apc_show_expired" <?=isset($_GET['apc_show_expired'])?'checked="checked"':''?> />Show expired</label>
 				</form>
 			</div>
 			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apc_view' ): ?>
@@ -276,7 +278,7 @@
 
 					<tbody>
 					<?php foreach( sort_list($apc['cache']['cache_list']) as $item ):
-						if( !preg_match(get_selector(), $item['key']) ) continue;?>
+						if( !preg_match(get_selector(), $item['key']) || ( !isset( $_GET['apc_show_expired'] ) && $item['mtime'] + $item['ttl'] < time() ) ) continue;?>
 						<tr>
 							<td><?=$item['key']?></td>
 							<td><?=$item['nhits']?></td>

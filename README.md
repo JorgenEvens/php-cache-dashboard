@@ -16,3 +16,5 @@ A dashboard for PHP Opcache and APCu
 
 Simply drop the cache.php file somewhere on your webserver, preferably somewhere private, and that is it.
 Navigate to the page using your browser and you will receive cache information.
+
+![Screenshot of php-cache-dashboard](http://jorgen.evens.eu/github/php-cache-dashboard.png)

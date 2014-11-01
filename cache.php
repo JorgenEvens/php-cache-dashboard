@@ -116,10 +116,11 @@
 
 	if( isset( $_GET['action'] ) && $_GET['action'] == 'op_delete' ) {
 		$selector = get_selector();
+		
 		foreach( $opcache['scripts'] as $key => $value ) {
 			if( !preg_match( $selector, $key) ) continue;
 
-			opcache_invalidate( $key );
+			opcache_invalidate( $key, empty($_GET['force'])?false:true );
 		}
 		redirect('?action=op_select&selector=' . $_GET['selector'] );
 	}
@@ -198,6 +199,10 @@
 					</label>
 					<button type="submit" name="action" value="op_select">Select</button>
 					<button type="submit" name="action" value="op_delete">Delete</button>
+					<label>
+						<input name="force" type="checkbox" />
+						Force deletion
+					</label>
 				</form>
 			</div>
 			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'op_select' ): ?>
@@ -222,7 +227,10 @@
 							<td><?=$item['full_path']?></td>
 							<td><?=$item['hits']?></td>
 							<td><?=human_size($item['memory_consumption'])?></td>
-							<td><a href="?action=op_delete&selector=<?=urlencode('^'.$item['full_path'].'$')?>">Delete</a></td>
+							<td>
+								<a href="?action=op_delete&selector=<?=urlencode('^'.preg_quote($item['full_path']).'$')?>">Delete</a>
+								<a href="?action=op_delete&force=1&selector=<?=urlencode('^'.preg_quote($item['full_path']).'$')?>">Force Delete</a>
+							</td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>

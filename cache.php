@@ -286,7 +286,8 @@
 
 					<tbody>
 					<?php foreach( sort_list($apc['cache']['cache_list']) as $item ):
-						if( !preg_match(get_selector(), $item['key']) || ( !isset( $_GET['apc_show_expired'] ) && $item['mtime'] + $item['ttl'] < time() ) ) continue;?>
+						$expired = !isset( $_GET['apc_show_expired'] ) && $item['ttl'] > 0 && $item['mtime'] + $item['ttl'] < time();
+						if( !preg_match(get_selector(), $item['key']) || $expired ) continue;?>
 						<tr>
 							<td><?=$item['key']?></td>
 							<td><?=$item['nhits']?></td>

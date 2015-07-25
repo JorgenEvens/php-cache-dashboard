@@ -9,6 +9,25 @@
 		return ( $a / $b ) * 100;
 	}
 
+	function has_key( $arr, $key1=null, $key2=null, $key3=null ) {
+		if( isset( $arr[$key1] ) )
+			return $key1;
+		if( isset( $arr[$key2] ) )
+			return $key2;
+		if( isset( $arr[$key3] ) )
+			return $key3;
+
+		return null;
+	}
+
+	function get_key( $arr, $key1=null, $key2=null, $key3=null ) {
+		$key = has_key($arr, $key1, $key2, $key3 );
+		if( empty( $key ) )
+			return null;
+
+		return $arr[$key];
+	}
+
 	function opcache_mem( $key ) {
 		global $opcache;
 
@@ -75,7 +94,7 @@
 
 		$query = preg_replace( '#sort=[^&]+&?#', '', $query );
 		$query = preg_replace( '#order=[^&]+&?#', '', $query );
-		
+
 		if( !isset( $_GET['order'] ) )
 			$_GET['order'] = '';
 
@@ -116,7 +135,7 @@
 
 	if( isset( $_GET['action'] ) && $_GET['action'] == 'op_delete' ) {
 		$selector = get_selector();
-		
+
 		foreach( $opcache['scripts'] as $key => $value ) {
 			if( !preg_match( $selector, $key) ) continue;
 
@@ -273,7 +292,7 @@
 				<table>
 					<thead>
 						<tr>
-							<th><a href="<?=sort_url('key')?>">Key</a></th>
+							<th><a href="<?=sort_url(has_key('key', 'info'))?>">Key</a></th>
 							<th><a href="<?=sort_url('nhits')?>">Hits</a></th>
 							<th><a href="<?=sort_url('mem_size')?>">Size</a></th>
 							<th><a href="<?=sort_url('ttl')?>">TTL</a></th>
@@ -286,17 +305,17 @@
 
 					<tbody>
 					<?php foreach( sort_list($apc['cache']['cache_list']) as $item ):
-						$expired = !isset( $_GET['apc_show_expired'] ) && $item['ttl'] > 0 && $item['mtime'] + $item['ttl'] < time();
-						if( !preg_match(get_selector(), $item['key']) || $expired ) continue;?>
+						$expired = !isset( $_GET['apc_show_expired'] ) && $item['ttl'] > 0 && get_key($item, 'mtime', 'modification_time') + $item['ttl'] < time();
+						if( !preg_match(get_selector(), get_key($item, 'key', 'info')) || $expired ) continue;?>
 						<tr>
-							<td><?=$item['key']?></td>
+							<td><?=get_key($item, 'key', 'info')?></td>
 							<td><?=$item['nhits']?></td>
 							<td><?=human_size($item['mem_size'])?></td>
 							<td><?=$item['ttl']?></td>
-							<td><?=date('Y-m-d H:i', $item['mtime'] + $item['ttl'] )?></td>
+							<td><?=date('Y-m-d H:i', get_key($item, 'mtime', 'modification_time') + $item['ttl'] )?></td>
 							<td>
-								<a href="?action=apc_delete&selector=<?=urlencode('^'.$item['key'].'$')?>">Delete</a>
-								<a href="?action=apc_view&selector=<?=urlencode($item['key'])?>">View</a>
+								<a href="?action=apc_delete&selector=<?=urlencode('^'.get_key($item, 'key', 'info').'$')?>">Delete</a>
+								<a href="?action=apc_view&selector=<?=urlencode(get_key($item, 'key', 'info'))?>">View</a>
 							</td>
 						</tr>
 					<?php endforeach; ?>

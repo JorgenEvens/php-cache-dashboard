@@ -62,6 +62,15 @@
 
 	}
 
+	function apc_ref() {
+		global $apc;
+
+		if( !empty( $apc['cache']['cache_list'] ) )
+			return current($apc['cache']['cache_list']);
+
+		return array();
+	}
+
 	function human_size( $s ) {
 		$size = 'B';
 		$sizes = array( 'KB', 'MB', 'GB' );
@@ -292,7 +301,7 @@
 				<table>
 					<thead>
 						<tr>
-							<th><a href="<?=sort_url(has_key('key', 'info'))?>">Key</a></th>
+							<th><a href="<?=sort_url(has_key(apc_ref(), 'key', 'info'))?>">Key</a></th>
 							<th><a href="<?=sort_url('nhits')?>">Hits</a></th>
 							<th><a href="<?=sort_url('mem_size')?>">Size</a></th>
 							<th><a href="<?=sort_url('ttl')?>">TTL</a></th>

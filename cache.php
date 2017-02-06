@@ -1,8 +1,17 @@
 <?php
+    if (!extension_loaded('apcu')) {
+        function apcu_cache_info($limited = false) { return apc_cache_info('user', $limited); }
+        function apcu_sma_info($limited = false) { return apc_sma_info($limited); }
+        function apcu_fetch($key, &$success) { return apc_fetch($key, $success); }
+        function apcu_delete($key) { return apc_delete($key); }
+        class ApcuIterator extends ApcIterator {}
+    }
+
+    $apcVersion = extension_loaded('apcu') ? 'APCu' : 'APC';
 	$opcache = opcache_get_status(true);
 	$apc = array(
-		'cache' => apc_cache_info('user'),
-		'sma' => apc_sma_info(true)
+		'cache' => apcu_cache_info(),
+		'sma' => apcu_sma_info(true)
 	);
 
 	function percentage( $a, $b ) {
@@ -46,7 +55,7 @@
 		return $opcache['opcache_statistics'][$stat];
 	}
 
-	function apc_mem( $key ) {
+	function apcu_mem( $key ) {
 		global $apc;
 
 		if( $key == 'total' )
@@ -56,13 +65,13 @@
 			return $apc['sma']['avail_mem'];
 
 		if( $key == 'used' )
-			return apc_mem('total') - apc_mem('free');
+			return apcu_mem('total') - apcu_mem('free');
 
 		return 0;
 
 	}
 
-	function apc_ref() {
+	function apcu_ref() {
 		global $apc;
 
 		if( !empty( $apc['cache']['cache_list'] ) )
@@ -154,14 +163,14 @@
 	}
 
 	// APC
-	if( isset( $_GET['action'] ) && $_GET['action'] == 'apc_restart' ) {
-		apc_delete( new ApcIterator('#.*#') );
+	if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_restart' ) {
+		apcu_delete( new ApcuIterator('#.*#') );
 		redirect('?');
 	}
 
-	if( isset( $_GET['action'] ) && $_GET['action'] == 'apc_delete' ) {
-		apc_delete( new ApcIterator('user',get_selector()) );
-		redirect( '?action=apc_select&selector=' . $_GET['selector'] );
+	if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_delete' ) {
+		apcu_delete( new ApcuIterator('user',get_selector()) );
+		redirect( '?action=apcu_select&selector=' . $_GET['selector'] );
 	}
 ?><html>
 	<head>
@@ -192,7 +201,7 @@
 	<body>
 		<div class="wrap">
 			<div>
-				Goto: <a href="#opcache">PHP Opcache</a> or <a href="#apcu">APCu</a>
+				Goto: <a href="#opcache">PHP Opcache</a> or <a href="#apcu"><?=$apcVersion?></a>
 			</div>
 			<h2 id="opcache">PHP Opcache</h2>
 			<div>
@@ -266,42 +275,42 @@
 			</div>
 			<?php endif; ?>
 
-			<h2 id="apcu">APCu</h2>
+			<h2 id="apcu"><?=$apcVersion?></h2>
 			<div>
-				<h3>Memory <?=human_size(apc_mem('used'))?> of <?=human_size(apc_mem('total'))?></h3>
+				<h3>Memory <?=human_size(apcu_mem('used'))?> of <?=human_size(apcu_mem('total'))?></h3>
 				<div class="full bar green">
-					<div class="orange" style="width: <?=percentage(apc_mem('used'), apc_mem('total'))?>%"></div>
+					<div class="orange" style="width: <?=percentage(apcu_mem('used'), apcu_mem('total'))?>%"></div>
 				</div>
 			</div>
 			<div>
 				<h3>Actions</h3>
 				<form action="?" method="GET">
 					<label>Cache:
-						<button name="action" value="apc_restart">Restart</button>
+						<button name="action" value="apcu_restart">Restart</button>
 					</label>
 				</form>
 				<form action="?" method="GET">
 					<label>Key(s):
 						<input name="selector" type="text" value="" placeholder=".*" />
 					</label>
-					<button type="submit" name="action" value="apc_select">Select</button>
-					<button type="submit" name="action" value="apc_delete">Delete</button>
-					<label><input type="checkbox" name="apc_show_expired" <?=isset($_GET['apc_show_expired'])?'checked="checked"':''?> />Show expired</label>
+					<button type="submit" name="action" value="apcu_select">Select</button>
+					<button type="submit" name="action" value="apcu_delete">Delete</button>
+					<label><input type="checkbox" name="apcu_show_expired" <?=isset($_GET['apcu_show_expired'])?'checked="checked"':''?> />Show expired</label>
 				</form>
 			</div>
-			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apc_view' ): ?>
+			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_view' ): ?>
 			<div>
 				<h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
-				<pre><?php var_dump( apc_fetch(urldecode($_GET['selector'])) ); ?></pre>
+				<pre><?php var_dump( apcu_fetch(urldecode($_GET['selector'])) ); ?></pre>
 			</div>
 			<?php endif; ?>
-			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apc_select' ): ?>
+			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_select' ): ?>
 			<div>
 				<h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
 				<table>
 					<thead>
 						<tr>
-							<th><a href="<?=sort_url(has_key(apc_ref(), 'key', 'info'))?>">Key</a></th>
+							<th><a href="<?=sort_url(has_key(apcu_ref(), 'key', 'info'))?>">Key</a></th>
 							<th><a href="<?=sort_url('nhits')?>">Hits</a></th>
 							<th><a href="<?=sort_url('mem_size')?>">Size</a></th>
 							<th><a href="<?=sort_url('ttl')?>">TTL</a></th>
@@ -314,7 +323,7 @@
 
 					<tbody>
 					<?php foreach( sort_list($apc['cache']['cache_list']) as $item ):
-						$expired = !isset( $_GET['apc_show_expired'] ) && $item['ttl'] > 0 && get_key($item, 'mtime', 'modification_time') + $item['ttl'] < time();
+						$expired = !isset( $_GET['apcu_show_expired'] ) && $item['ttl'] > 0 && get_key($item, 'mtime', 'modification_time') + $item['ttl'] < time();
 						if( !preg_match(get_selector(), get_key($item, 'key', 'info')) || $expired ) continue;?>
 						<tr>
 							<td><?=get_key($item, 'key', 'info')?></td>
@@ -323,8 +332,8 @@
 							<td><?=$item['ttl']?></td>
 							<td><?=date('Y-m-d H:i', get_key($item, 'mtime', 'modification_time') + $item['ttl'] )?></td>
 							<td>
-								<a href="?action=apc_delete&selector=<?=urlencode('^'.get_key($item, 'key', 'info').'$')?>">Delete</a>
-								<a href="?action=apc_view&selector=<?=urlencode(get_key($item, 'key', 'info'))?>">View</a>
+								<a href="?action=apcu_delete&selector=<?=urlencode('^'.get_key($item, 'key', 'info').'$')?>">Delete</a>
+								<a href="?action=apcu_view&selector=<?=urlencode(get_key($item, 'key', 'info'))?>">View</a>
 							</td>
 						</tr>
 					<?php endforeach; ?>

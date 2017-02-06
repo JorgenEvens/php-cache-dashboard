@@ -2,7 +2,7 @@
     if (!extension_loaded('apcu')) {
         function apcu_cache_info($limited = false) { return apc_cache_info('user', $limited); }
         function apcu_sma_info($limited = false) { return apc_sma_info($limited); }
-        function apcu_fetch($key, &$success) { return apc_fetch($key, $success); }
+        function apcu_fetch($key, &$success = null) { return apc_fetch($key, $success); }
         function apcu_delete($key) { return apc_delete($key); }
         class ApcuIterator extends ApcIterator {}
     }
@@ -301,7 +301,7 @@
 			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_view' ): ?>
 			<div>
 				<h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
-				<pre><?php var_dump( apcu_fetch(urldecode($_GET['selector'])) ); ?></pre>
+				<pre><?=htmlentities(var_export(apcu_fetch(urldecode($_GET['selector']))), true); ?></pre>
 			</div>
 			<?php endif; ?>
 			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_select' ): ?>
@@ -311,7 +311,7 @@
 					<thead>
 						<tr>
 							<th><a href="<?=sort_url(has_key(apcu_ref(), 'key', 'info'))?>">Key</a></th>
-							<th><a href="<?=sort_url('nhits')?>">Hits</a></th>
+							<th><a href="<?=sort_url(has_key(apcu_ref(), 'nhits', 'num_hits'))?>">Hits</a></th>
 							<th><a href="<?=sort_url('mem_size')?>">Size</a></th>
 							<th><a href="<?=sort_url('ttl')?>">TTL</a></th>
 							<th>Expires</th>
@@ -327,7 +327,7 @@
 						if( !preg_match(get_selector(), get_key($item, 'key', 'info')) || $expired ) continue;?>
 						<tr>
 							<td><?=get_key($item, 'key', 'info')?></td>
-							<td><?=$item['nhits']?></td>
+							<td><?=get_key($item, 'nhits', 'num_hits')?></td>
 							<td><?=human_size($item['mem_size'])?></td>
 							<td><?=$item['ttl']?></td>
 							<td><?=date('Y-m-d H:i', get_key($item, 'mtime', 'modification_time') + $item['ttl'] )?></td>

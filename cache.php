@@ -4,7 +4,9 @@
         function apcu_sma_info($limited = false) { return apc_sma_info($limited); }
         function apcu_fetch($key, &$success = null) { return apc_fetch($key, $success); }
         function apcu_delete($key) { return apc_delete($key); }
-        class ApcuIterator extends ApcIterator {}
+        class ApcuIterator extends ApcIterator {
+            function __construct($search = null) { parent::__construct('user', $search); }
+        }
     }
 
     $apcVersion = extension_loaded('apcu') ? 'APCu' : 'APC';

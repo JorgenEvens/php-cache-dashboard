@@ -301,7 +301,7 @@
 			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_view' ): ?>
 			<div>
 				<h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
-				<pre><?=htmlentities(var_export(apcu_fetch(urldecode($_GET['selector']))), true); ?></pre>
+				<pre><?=htmlentities(var_export(apcu_fetch(urldecode($_GET['selector'])), true)); ?></pre>
 			</div>
 			<?php endif; ?>
 			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_select' ): ?>

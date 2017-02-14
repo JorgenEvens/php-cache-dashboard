@@ -171,7 +171,7 @@
 	}
 
 	if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_delete' ) {
-		apcu_delete( new ApcuIterator('user',get_selector()) );
+		apcu_delete( new ApcuIterator(get_selector()) );
 		redirect( '?action=apcu_select&selector=' . $_GET['selector'] );
 	}
 ?><html>

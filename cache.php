@@ -332,7 +332,7 @@
 							<td><?=get_key($item, 'nhits', 'num_hits')?></td>
 							<td><?=human_size($item['mem_size'])?></td>
 							<td><?=$item['ttl']?></td>
-							<td><?=date('Y-m-d H:i', get_key($item, 'mtime', 'modification_time') + $item['ttl'] )?></td>
+							<td><?=($item['ttl'] == 0 ? 'indefinite' : date('Y-m-d H:i', get_key($item, 'mtime', 'modification_time') + $item['ttl'] ))?></td>
 							<td>
 								<a href="?action=apcu_delete&selector=<?=urlencode('^'.get_key($item, 'key', 'info').'$')?>">Delete</a>
 								<a href="?action=apcu_view&selector=<?=urlencode(get_key($item, 'key', 'info'))?>">View</a>

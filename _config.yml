@@ -1,1 +1,4 @@
 theme: jekyll-theme-cayman
+title: php-cache-dashboard
+description: A dashboard for PHP Opcache, APC and APCu
+google_analytics: UA-25703748-6

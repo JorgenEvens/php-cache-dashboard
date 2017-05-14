@@ -31,6 +31,4 @@ I really appreciate any contribution you would like to make, so don't hesitate t
 
 ## About me
 
-Hi, my name is Jorgen Evens. By day I built things (mainly in PHP and JavaScript) for [Ambassify](https://ambassify.com) and by night I tinker around with these kinds of projects.
-
-I you want you can always follow me around on [Twitter](https://twitter.com/JorgenEvens).
+Hi, my name is [Jorgen Evens](https://jorgen.evens.eu). By day I built things (mainly in PHP and JavaScript) for [Ambassify](https://ambassify.com) and by night I tinker around with these kinds of projects.

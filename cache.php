@@ -95,6 +95,26 @@
 		return $s . ' ' . $size;
 	}
 
+	function machine_size( $val ) {
+        $val = trim($val);
+        $last = strtolower($val[strlen($val)-1]);
+
+        if (!is_numeric($last)){
+            $val = (int) substr($val, 0, -1);
+        }
+
+        switch($last) {
+            case 'g':
+                $val *= 1024;
+            case 'm':
+                $val *= 1024;
+            case 'k':
+                $val *= 1024;
+        }
+
+        return $val;
+    }
+
 	function redirect($url) {
 		header('Status: 302 Moved Temporarily');
 		header('Location: '. $url);
@@ -174,6 +194,11 @@
 		apcu_delete( new ApcuIterator(get_selector()) );
 		redirect( '?action=apcu_select&selector=' . $_GET['selector'] );
 	}
+
+    if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_clear' ) {
+        clearstatcache(true);
+        redirect('?#realpath');
+    }
 ?><html>
 	<head>
 		<title>Cache Status</title>
@@ -194,6 +219,7 @@
 		table th { background: #686868; color: white; padding: 0.5em 1em 0.2em 1em; font-weight: normal; }
 		table th a { text-decoration: none; color: white; cursor: pointer; }
 		table tr:nth-child(2n+1) { background: #efefef;	}
+
 		@media screen and (max-width: 480px) {
 			input { width: 40%; }
 		}
@@ -203,7 +229,7 @@
 	<body>
 		<div class="wrap">
 			<div>
-				Goto: <a href="#opcache">PHP Opcache</a> or <a href="#apcu"><?=$apcVersion?></a>
+				Goto: <a href="#opcache">PHP Opcache</a> or <a href="#apcu"><?=$apcVersion?></a> or <a href="#realpath">Realpath</a>
 			</div>
 			<h2 id="opcache">PHP Opcache</h2>
 			<div>
@@ -343,6 +369,55 @@
 				</table>
 			</div>
 			<?php endif; ?>
+
+            <h2 id="realpath">Realpath</h2>
+            <div>
+                <?php
+                    $realpathCacheUsed = realpath_cache_size();
+                    $realpathCacheTotal = machine_size(ini_get('realpath_cache_size'));
+                ?>
+                <h3>Memory <?=human_size($realpathCacheUsed)?> of <?=human_size($realpathCacheTotal)?></h3>
+                <div class="full bar green">
+                    <div class="orange" style="width: <?=percentage($realpathCacheUsed, $realpathCacheTotal)?>%"></div>
+                </div>
+                <div>
+                    <h3>Actions</h3>
+                    <form action="?" method="GET">
+                        <button type="submit" name="action" value="realpath_clear">Clear</button>
+                    </form>
+                    <form action="?" method="GET">
+                        <button type="submit" name="action" value="realpath_show">Show</button>
+                    </form>
+                </div>
+
+                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_show' ): ?>
+                    <div>
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Path</th>
+                                <th>Is Directory</a></th>
+                                <th>Realpath</th>
+                                <th>Expires</th>
+                                <th>Key</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            <?php foreach( realpath_cache_get() as $path => $item ): ?>
+                                <tr>
+                                    <td><?php echo $path;?></td>
+                                    <td><?php echo $item['is_dir'] ? '&#10004;' : ''?></td>
+                                    <td><?php echo $item['realpath'];?></td>
+                                    <td><?php echo date('Y-m-d H:i:s', $item['expires']);?></td>
+                                    <td><?php echo sprintf('%u', $item['key']);?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
 		</div>
 	</body>
 </html>

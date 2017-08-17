@@ -26,6 +26,10 @@
     }
 
     if (ENABLE_REALPATH) {
+        $realpath = array();
+        foreach( realpath_cache_get() as $path => $item ) {
+            $realpath[] = array_merge(array('path' => $path), $item);
+        }
         $realpathCacheUsed = realpath_cache_size();
         $realpathCacheTotal = machine_size(ini_get('realpath_cache_size'));
     }
@@ -222,7 +226,18 @@
     if (ENABLE_REALPATH) {
         if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_clear' ) {
             clearstatcache(true);
-            redirect('?#realpath');
+            redirect('?action=realpath_show#realpath');
+        }
+
+        if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_delete' ) {
+            $selector = get_selector();
+
+            foreach( $realpath as $item ) {
+                if( !preg_match( $selector, $item['path']) ) continue;
+
+                clearstatcache(true, $item['path']);
+            }
+            redirect('?action=realpath_show&selector=' . $_GET['selector'] . '#realpath');
         }
     }
 ?><html>
@@ -416,34 +431,40 @@
                     <div>
                         <h3>Actions</h3>
                         <form action="?" method="GET">
-                            <button type="submit" name="action" value="realpath_clear">Clear</button>
+                            <label>Cache:
+                                <button name="action" value="realpath_clear">Restart</button>
+                            </label>
                         </form>
                         <form action="?" method="GET">
-                            <button type="submit" name="action" value="realpath_show">Show</button>
+                            <label>Key(s):
+                                <input name="selector" type="text" value="" placeholder=".*" />
+                            </label>
+                            <button type="submit" name="action" value="realpath_select">Select</button>
+                            <button type="submit" name="action" value="realpath_delete">Delete</button>
                         </form>
                     </div>
 
-                    <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_show' ): ?>
+                    <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_select' ): ?>
                         <div>
                             <table>
                                 <thead>
                                 <tr>
-                                    <th>Path</th>
-                                    <th>Is Directory</a></th>
-                                    <th>Realpath</th>
-                                    <th>Expires</th>
-                                    <th>Key</th>
+                                    <th><a href="<?=sort_url('path')?>">Path</a></th>
+                                    <th><a href="<?=sort_url('is_dir')?>">Is Directory</a></th>
+                                    <th><a href="<?=sort_url('realpath')?>">Realpath</a></th>
+                                    <th><a href="<?=sort_url('expires')?>">Expires</a></th>
+                                    <th><a href="<?=sort_url('key')?>">Key</a></th>
                                 </tr>
                                 </thead>
-
                                 <tbody>
-                                <?php foreach( realpath_cache_get() as $path => $item ): ?>
+                                <?php foreach( sort_list($realpath) as $item ):
+                                    if( !preg_match(get_selector(), $item['path']) ) continue;?>
                                     <tr>
-                                        <td><?php echo $path;?></td>
-                                        <td><?php echo $item['is_dir'] ? '&#10004;' : ''?></td>
-                                        <td><?php echo $item['realpath'];?></td>
-                                        <td><?php echo date('Y-m-d H:i:s', $item['expires']);?></td>
-                                        <td><?php echo sprintf('%u', $item['key']);?></td>
+                                        <td><?=$item['path']?></td>
+                                        <td><?=$item['is_dir'] ? '&#10004;' : ''?></td>
+                                        <td><?=$item['realpath']?></td>
+                                        <td><?=date('Y-m-d H:i:s', $item['expires'])?></td>
+                                        <td><?=sprintf('%u', $item['key'])?></td>
                                     </tr>
                                 <?php endforeach; ?>
                                 </tbody>

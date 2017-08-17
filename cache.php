@@ -103,14 +103,14 @@
             $val = (int) substr($val, 0, -1);
         }
 
-        switch($last) {
-            case 'g':
-                $val *= 1024;
-            case 'm':
-                $val *= 1024;
-            case 'k':
-                $val *= 1024;
-        }
+        if ($last == 'g')
+            $val *= (1024 * 1024 * 1024);
+
+        if ($last == 'm')
+            $val *= (1024 * 1024);
+
+        if ($last == 'k')
+            $val *= 1024;
 
         return $val;
     }

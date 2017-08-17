@@ -6,6 +6,8 @@ A dashboard for
 [APCu](http://php.net/manual/en/intro.apcu.php) and
 [realpath](http://php.net/manual/en/function.realpath-cache-get.php)
 
+Try it out at the [demo page](https://je-php-cache-dashboard-demo.herokuapp.com/).
+
 ## Prerequisites
 
  - PHP

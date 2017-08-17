@@ -1,20 +1,34 @@
 <?php
-    if (!extension_loaded('apcu')) {
-        function apcu_cache_info($limited = false) { return apc_cache_info('user', $limited); }
-        function apcu_sma_info($limited = false) { return apc_sma_info($limited); }
-        function apcu_fetch($key, &$success = null) { return apc_fetch($key, $success); }
-        function apcu_delete($key) { return apc_delete($key); }
-        class ApcuIterator extends ApcIterator {
-            function __construct($search = null) { parent::__construct('user', $search); }
+    define('ENABLE_APC', extension_loaded('apcu') || extension_loaded('apc'));
+    define('ENABLE_OPCACHE', extension_loaded('Zend OPcache'));
+    define('ENABLE_REALPATH', function_exists('realpath_cache_size'));
+
+    if (ENABLE_APC) {
+        if (!extension_loaded('apcu')) {
+            function apcu_cache_info($limited = false) { return apc_cache_info('user', $limited); }
+            function apcu_sma_info($limited = false) { return apc_sma_info($limited); }
+            function apcu_fetch($key, &$success = null) { return apc_fetch($key, $success); }
+            function apcu_delete($key) { return apc_delete($key); }
+            class ApcuIterator extends ApcIterator {
+                function __construct($search = null) { parent::__construct('user', $search); }
+            }
         }
+
+        $apcVersion = extension_loaded('apcu') ? 'APCu' : 'APC';
+        $apc = array(
+            'cache' => apcu_cache_info(),
+            'sma' => apcu_sma_info(true)
+        );
     }
 
-    $apcVersion = extension_loaded('apcu') ? 'APCu' : 'APC';
-	$opcache = opcache_get_status(true);
-	$apc = array(
-		'cache' => apcu_cache_info(),
-		'sma' => apcu_sma_info(true)
-	);
+    if (ENABLE_OPCACHE) {
+        $opcache = opcache_get_status(true);
+    }
+
+    if (ENABLE_REALPATH) {
+        $realpathCacheUsed = realpath_cache_size();
+        $realpathCacheTotal = machine_size(ini_get('realpath_cache_size'));
+    }
 
 	function percentage( $a, $b ) {
 		return ( $a / $b ) * 100;
@@ -166,8 +180,9 @@
 		return $list;
 	}
 
-	// Opcache
-
+    /********************************/
+    /*            OPcache           */
+    /********************************/
 	if( isset( $_GET['action'] ) && $_GET['action'] == 'op_restart' ) {
 		opcache_reset();
 		redirect('?');
@@ -184,7 +199,9 @@
 		redirect('?action=op_select&selector=' . $_GET['selector'] );
 	}
 
-	// APC
+    /********************************/
+    /*              APC             */
+    /********************************/
 	if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_restart' ) {
 		apcu_delete( new ApcuIterator('#.*#') );
 		redirect('?');
@@ -195,6 +212,9 @@
 		redirect( '?action=apcu_select&selector=' . $_GET['selector'] );
 	}
 
+    /********************************/
+    /*           realpath           */
+    /********************************/
     if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_clear' ) {
         clearstatcache(true);
         redirect('?#realpath');
@@ -229,195 +249,203 @@
 	<body>
 		<div class="wrap">
 			<div>
-				Goto: <a href="#opcache">PHP Opcache</a> or <a href="#apcu"><?=$apcVersion?></a> or <a href="#realpath">Realpath</a>
+				Goto:
+                <?=implode(" or ", array_filter(array(
+                    ENABLE_OPCACHE ? '<a href="#opcache">PHP Opcache</a>' : null,
+                    ENABLE_APC ? '<a href="#apcu">' . $apcVersion . '</a>' : null,
+                    ENABLE_REALPATH ? '<a href="#realpath">Realpath</a>' : null
+                ))) ?>
 			</div>
-			<h2 id="opcache">PHP Opcache</h2>
-			<div>
-				<h3>Memory <?=human_size(opcache_mem('used')+opcache_mem('wasted'))?> of <?=human_size(opcache_mem('total'))?></h3>
-				<div class="full bar green">
-					<div class="orange" style="width: <?=percentage(opcache_mem('used'), opcache_mem('total'))?>%"></div>
-					<div class="red" style="width: <?=percentage(opcache_mem('wasted'), opcache_mem('total'))?>%"></div>
-				</div>
-			</div>
-			<div>
-				<h3>Keys <?=opcache_stat('num_cached_keys')?> of <?=opcache_stat('max_cached_keys')?></h3>
-				<div class="full bar green">
-					<div class="orange" style="width: <?=percentage(opcache_stat('num_cached_keys'), opcache_stat('max_cached_keys'))?>%"></div>
-				</div>
-			</div>
-			<div>
-				<h3>Cache hit <?=round(opcache_stat('opcache_hit_rate'),2)?>%</h3>
-				<div class="full bar green">
-					<div class="red" style="width: <?=100-opcache_stat('opcache_hit_rate')?>%"></div>
-				</div>
-			</div>
-			<div>
-				<h3>Actions</h3>
-				<form action="?" method="GET">
-					<label>Cache:
-						<button name="action" value="op_restart">Restart</button>
-					</label>
-				</form>
-				<form action="?" method="GET">
-					<label>Key(s):
-						<input name="selector" type="text" value="" placeholder=".*" />
-					</label>
-					<button type="submit" name="action" value="op_select">Select</button>
-					<button type="submit" name="action" value="op_delete">Delete</button>
-					<label>
-						<input name="force" type="checkbox" />
-						Force deletion
-					</label>
-				</form>
-			</div>
-			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'op_select' ): ?>
-			<div>
-				<h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
-				<table>
-					<thead>
-						<tr>
-							<th><a href="<?=sort_url('full_path')?>">Key</a></th>
-							<th><a href="<?=sort_url('hits')?>">Hits</a></th>
-							<th><a href="<?=sort_url('memory_consumption')?>">Size</a></th>
-							<th>Action</th>
-						</tr>
-					</thead>
 
-					<tfoot></tfoot>
-
-					<tbody>
-					<?php foreach( sort_list($opcache['scripts']) as $item ):
-						if( !preg_match(get_selector(), $item['full_path']) ) continue;?>
-						<tr>
-							<td><?=$item['full_path']?></td>
-							<td><?=$item['hits']?></td>
-							<td><?=human_size($item['memory_consumption'])?></td>
-							<td>
-								<a href="?action=op_delete&selector=<?=urlencode('^'.preg_quote($item['full_path']).'$')?>">Delete</a>
-								<a href="?action=op_delete&force=1&selector=<?=urlencode('^'.preg_quote($item['full_path']).'$')?>">Force Delete</a>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-					</tbody>
-				</table>
-			</div>
-			<?php endif; ?>
-
-			<h2 id="apcu"><?=$apcVersion?></h2>
-			<div>
-				<h3>Memory <?=human_size(apcu_mem('used'))?> of <?=human_size(apcu_mem('total'))?></h3>
-				<div class="full bar green">
-					<div class="orange" style="width: <?=percentage(apcu_mem('used'), apcu_mem('total'))?>%"></div>
-				</div>
-			</div>
-			<div>
-				<h3>Actions</h3>
-				<form action="?" method="GET">
-					<label>Cache:
-						<button name="action" value="apcu_restart">Restart</button>
-					</label>
-				</form>
-				<form action="?" method="GET">
-					<label>Key(s):
-						<input name="selector" type="text" value="" placeholder=".*" />
-					</label>
-					<button type="submit" name="action" value="apcu_select">Select</button>
-					<button type="submit" name="action" value="apcu_delete">Delete</button>
-					<label><input type="checkbox" name="apcu_show_expired" <?=isset($_GET['apcu_show_expired'])?'checked="checked"':''?> />Show expired</label>
-				</form>
-			</div>
-			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_view' ): ?>
-			<div>
-				<h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
-				<pre><?=htmlentities(var_export(apcu_fetch(urldecode($_GET['selector'])), true)); ?></pre>
-			</div>
-			<?php endif; ?>
-			<?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_select' ): ?>
-			<div>
-				<h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
-				<table>
-					<thead>
-						<tr>
-							<th><a href="<?=sort_url(has_key(apcu_ref(), 'key', 'info'))?>">Key</a></th>
-							<th><a href="<?=sort_url(has_key(apcu_ref(), 'nhits', 'num_hits'))?>">Hits</a></th>
-							<th><a href="<?=sort_url('mem_size')?>">Size</a></th>
-							<th><a href="<?=sort_url('ttl')?>">TTL</a></th>
-							<th>Expires</th>
-							<th>Action</th>
-						</tr>
-					</thead>
-
-					<tfoot></tfoot>
-
-					<tbody>
-					<?php foreach( sort_list($apc['cache']['cache_list']) as $item ):
-						$expired = !isset( $_GET['apcu_show_expired'] ) && $item['ttl'] > 0 && get_key($item, 'mtime', 'modification_time') + $item['ttl'] < time();
-						if( !preg_match(get_selector(), get_key($item, 'key', 'info')) || $expired ) continue;?>
-						<tr>
-							<td><?=get_key($item, 'key', 'info')?></td>
-							<td><?=get_key($item, 'nhits', 'num_hits')?></td>
-							<td><?=human_size($item['mem_size'])?></td>
-							<td><?=$item['ttl']?></td>
-							<td><?=($item['ttl'] == 0 ? 'indefinite' : date('Y-m-d H:i', get_key($item, 'mtime', 'modification_time') + $item['ttl'] ))?></td>
-							<td>
-								<a href="?action=apcu_delete&selector=<?=urlencode('^'.get_key($item, 'key', 'info').'$')?>">Delete</a>
-								<a href="?action=apcu_view&selector=<?=urlencode(get_key($item, 'key', 'info'))?>">View</a>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-					</tbody>
-				</table>
-			</div>
-			<?php endif; ?>
-
-            <h2 id="realpath">Realpath</h2>
-            <div>
-                <?php
-                    $realpathCacheUsed = realpath_cache_size();
-                    $realpathCacheTotal = machine_size(ini_get('realpath_cache_size'));
-                ?>
-                <h3>Memory <?=human_size($realpathCacheUsed)?> of <?=human_size($realpathCacheTotal)?></h3>
-                <div class="full bar green">
-                    <div class="orange" style="width: <?=percentage($realpathCacheUsed, $realpathCacheTotal)?>%"></div>
+            <?php if (ENABLE_OPCACHE): ?>
+                <h2 id="opcache">PHP Opcache</h2>
+                <div>
+                    <h3>Memory <?=human_size(opcache_mem('used')+opcache_mem('wasted'))?> of <?=human_size(opcache_mem('total'))?></h3>
+                    <div class="full bar green">
+                        <div class="orange" style="width: <?=percentage(opcache_mem('used'), opcache_mem('total'))?>%"></div>
+                        <div class="red" style="width: <?=percentage(opcache_mem('wasted'), opcache_mem('total'))?>%"></div>
+                    </div>
+                </div>
+                <div>
+                    <h3>Keys <?=opcache_stat('num_cached_keys')?> of <?=opcache_stat('max_cached_keys')?></h3>
+                    <div class="full bar green">
+                        <div class="orange" style="width: <?=percentage(opcache_stat('num_cached_keys'), opcache_stat('max_cached_keys'))?>%"></div>
+                    </div>
+                </div>
+                <div>
+                    <h3>Cache hit <?=round(opcache_stat('opcache_hit_rate'),2)?>%</h3>
+                    <div class="full bar green">
+                        <div class="red" style="width: <?=100-opcache_stat('opcache_hit_rate')?>%"></div>
+                    </div>
                 </div>
                 <div>
                     <h3>Actions</h3>
                     <form action="?" method="GET">
-                        <button type="submit" name="action" value="realpath_clear">Clear</button>
+                        <label>Cache:
+                            <button name="action" value="op_restart">Restart</button>
+                        </label>
                     </form>
                     <form action="?" method="GET">
-                        <button type="submit" name="action" value="realpath_show">Show</button>
+                        <label>Key(s):
+                            <input name="selector" type="text" value="" placeholder=".*" />
+                        </label>
+                        <button type="submit" name="action" value="op_select">Select</button>
+                        <button type="submit" name="action" value="op_delete">Delete</button>
+                        <label>
+                            <input name="force" type="checkbox" />
+                            Force deletion
+                        </label>
                     </form>
                 </div>
-
-                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_show' ): ?>
-                    <div>
-                        <table>
-                            <thead>
+                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'op_select' ): ?>
+                <div>
+                    <h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
+                    <table>
+                        <thead>
                             <tr>
-                                <th>Path</th>
-                                <th>Is Directory</a></th>
-                                <th>Realpath</th>
-                                <th>Expires</th>
-                                <th>Key</th>
+                                <th><a href="<?=sort_url('full_path')?>">Key</a></th>
+                                <th><a href="<?=sort_url('hits')?>">Hits</a></th>
+                                <th><a href="<?=sort_url('memory_consumption')?>">Size</a></th>
+                                <th>Action</th>
                             </tr>
-                            </thead>
+                        </thead>
 
-                            <tbody>
-                            <?php foreach( realpath_cache_get() as $path => $item ): ?>
-                                <tr>
-                                    <td><?php echo $path;?></td>
-                                    <td><?php echo $item['is_dir'] ? '&#10004;' : ''?></td>
-                                    <td><?php echo $item['realpath'];?></td>
-                                    <td><?php echo date('Y-m-d H:i:s', $item['expires']);?></td>
-                                    <td><?php echo sprintf('%u', $item['key']);?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                        <tfoot></tfoot>
+
+                        <tbody>
+                        <?php foreach( sort_list($opcache['scripts']) as $item ):
+                            if( !preg_match(get_selector(), $item['full_path']) ) continue;?>
+                            <tr>
+                                <td><?=$item['full_path']?></td>
+                                <td><?=$item['hits']?></td>
+                                <td><?=human_size($item['memory_consumption'])?></td>
+                                <td>
+                                    <a href="?action=op_delete&selector=<?=urlencode('^'.preg_quote($item['full_path']).'$')?>">Delete</a>
+                                    <a href="?action=op_delete&force=1&selector=<?=urlencode('^'.preg_quote($item['full_path']).'$')?>">Force Delete</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
                 <?php endif; ?>
-            </div>
+            <?php endif; ?>
+
+            <?php if(ENABLE_APC): ?>
+                <h2 id="apcu"><?=$apcVersion?></h2>
+                <div>
+                    <h3>Memory <?=human_size(apcu_mem('used'))?> of <?=human_size(apcu_mem('total'))?></h3>
+                    <div class="full bar green">
+                        <div class="orange" style="width: <?=percentage(apcu_mem('used'), apcu_mem('total'))?>%"></div>
+                    </div>
+                </div>
+                <div>
+                    <h3>Actions</h3>
+                    <form action="?" method="GET">
+                        <label>Cache:
+                            <button name="action" value="apcu_restart">Restart</button>
+                        </label>
+                    </form>
+                    <form action="?" method="GET">
+                        <label>Key(s):
+                            <input name="selector" type="text" value="" placeholder=".*" />
+                        </label>
+                        <button type="submit" name="action" value="apcu_select">Select</button>
+                        <button type="submit" name="action" value="apcu_delete">Delete</button>
+                        <label><input type="checkbox" name="apcu_show_expired" <?=isset($_GET['apcu_show_expired'])?'checked="checked"':''?> />Show expired</label>
+                    </form>
+                </div>
+                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_view' ): ?>
+                <div>
+                    <h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
+                    <pre><?=htmlentities(var_export(apcu_fetch(urldecode($_GET['selector'])), true)); ?></pre>
+                </div>
+                <?php endif; ?>
+                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_select' ): ?>
+                <div>
+                    <h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><a href="<?=sort_url(has_key(apcu_ref(), 'key', 'info'))?>">Key</a></th>
+                                <th><a href="<?=sort_url(has_key(apcu_ref(), 'nhits', 'num_hits'))?>">Hits</a></th>
+                                <th><a href="<?=sort_url('mem_size')?>">Size</a></th>
+                                <th><a href="<?=sort_url('ttl')?>">TTL</a></th>
+                                <th>Expires</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+
+                        <tfoot></tfoot>
+
+                        <tbody>
+                        <?php foreach( sort_list($apc['cache']['cache_list']) as $item ):
+                            $expired = !isset( $_GET['apcu_show_expired'] ) && $item['ttl'] > 0 && get_key($item, 'mtime', 'modification_time') + $item['ttl'] < time();
+                            if( !preg_match(get_selector(), get_key($item, 'key', 'info')) || $expired ) continue;?>
+                            <tr>
+                                <td><?=get_key($item, 'key', 'info')?></td>
+                                <td><?=get_key($item, 'nhits', 'num_hits')?></td>
+                                <td><?=human_size($item['mem_size'])?></td>
+                                <td><?=$item['ttl']?></td>
+                                <td><?=($item['ttl'] == 0 ? 'indefinite' : date('Y-m-d H:i', get_key($item, 'mtime', 'modification_time') + $item['ttl'] ))?></td>
+                                <td>
+                                    <a href="?action=apcu_delete&selector=<?=urlencode('^'.get_key($item, 'key', 'info').'$')?>">Delete</a>
+                                    <a href="?action=apcu_view&selector=<?=urlencode(get_key($item, 'key', 'info'))?>">View</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <?php if(ENABLE_REALPATH): ?>
+                <h2 id="realpath">Realpath</h2>
+                <div>
+                    <h3>Memory <?=human_size($realpathCacheUsed)?> of <?=human_size($realpathCacheTotal)?></h3>
+                    <div class="full bar green">
+                        <div class="orange" style="width: <?=percentage($realpathCacheUsed, $realpathCacheTotal)?>%"></div>
+                    </div>
+                    <div>
+                        <h3>Actions</h3>
+                        <form action="?" method="GET">
+                            <button type="submit" name="action" value="realpath_clear">Clear</button>
+                        </form>
+                        <form action="?" method="GET">
+                            <button type="submit" name="action" value="realpath_show">Show</button>
+                        </form>
+                    </div>
+
+                    <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_show' ): ?>
+                        <div>
+                            <table>
+                                <thead>
+                                <tr>
+                                    <th>Path</th>
+                                    <th>Is Directory</a></th>
+                                    <th>Realpath</th>
+                                    <th>Expires</th>
+                                    <th>Key</th>
+                                </tr>
+                                </thead>
+
+                                <tbody>
+                                <?php foreach( realpath_cache_get() as $path => $item ): ?>
+                                    <tr>
+                                        <td><?php echo $path;?></td>
+                                        <td><?php echo $item['is_dir'] ? '&#10004;' : ''?></td>
+                                        <td><?php echo $item['realpath'];?></td>
+                                        <td><?php echo date('Y-m-d H:i:s', $item['expires']);?></td>
+                                        <td><?php echo sprintf('%u', $item['key']);?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 		</div>
 	</body>
 </html>

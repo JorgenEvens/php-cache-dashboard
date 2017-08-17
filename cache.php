@@ -34,6 +34,10 @@
         $realpathCacheTotal = machine_size(ini_get('realpath_cache_size'));
     }
 
+    function is_action($action) {
+        return isset( $_GET['action'] ) && $_GET['action'] == $action;
+    }
+
 	function percentage( $a, $b ) {
 		return ( $a / $b ) * 100;
 	}
@@ -188,12 +192,12 @@
     /*            OPcache           */
     /********************************/
     if (ENABLE_OPCACHE) {
-        if( isset( $_GET['action'] ) && $_GET['action'] == 'op_restart' ) {
+        if( is_action('op_restart') ) {
             opcache_reset();
             redirect('?');
         }
 
-        if( isset( $_GET['action'] ) && $_GET['action'] == 'op_delete' ) {
+        if( is_action('op_delete') ) {
             $selector = get_selector();
 
             foreach( $opcache['scripts'] as $key => $value ) {
@@ -209,12 +213,12 @@
     /*              APC             */
     /********************************/
     if (ENABLE_APC) {
-        if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_restart' ) {
+        if( is_action('apcu_restart') ) {
             apcu_delete( new ApcuIterator('#.*#') );
             redirect('?');
         }
 
-        if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_delete' ) {
+        if( is_action('apcu_delete') ) {
             apcu_delete( new ApcuIterator(get_selector()) );
             redirect( '?action=apcu_select&selector=' . $_GET['selector'] );
         }
@@ -224,12 +228,12 @@
     /*           realpath           */
     /********************************/
     if (ENABLE_REALPATH) {
-        if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_clear' ) {
+        if( is_action('realpath_clear') ) {
             clearstatcache(true);
             redirect('?action=realpath_show#realpath');
         }
 
-        if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_delete' ) {
+        if( is_action('realpath_delete') ) {
             $selector = get_selector();
 
             foreach( $realpath as $item ) {
@@ -318,7 +322,7 @@
                         </label>
                     </form>
                 </div>
-                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'op_select' ): ?>
+                <?php if( is_action('op_select') ): ?>
                 <div>
                     <h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
                     <table>
@@ -376,13 +380,13 @@
                         <label><input type="checkbox" name="apcu_show_expired" <?=isset($_GET['apcu_show_expired'])?'checked="checked"':''?> />Show expired</label>
                     </form>
                 </div>
-                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_view' ): ?>
+                <?php if( is_action('apcu_view') ): ?>
                 <div>
                     <h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
                     <pre><?=htmlentities(var_export(apcu_fetch(urldecode($_GET['selector'])), true)); ?></pre>
                 </div>
                 <?php endif; ?>
-                <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_select' ): ?>
+                <?php if( is_action('apcu_select') ): ?>
                 <div>
                     <h3>Keys matching <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
                     <table>
@@ -444,7 +448,7 @@
                         </form>
                     </div>
 
-                    <?php if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_select' ): ?>
+                    <?php if( is_action('realpath_select') ): ?>
                         <div>
                             <table>
                                 <thead>

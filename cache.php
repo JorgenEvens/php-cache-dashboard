@@ -183,41 +183,47 @@
     /********************************/
     /*            OPcache           */
     /********************************/
-	if( isset( $_GET['action'] ) && $_GET['action'] == 'op_restart' ) {
-		opcache_reset();
-		redirect('?');
-	}
+    if (ENABLE_OPCACHE) {
+        if( isset( $_GET['action'] ) && $_GET['action'] == 'op_restart' ) {
+            opcache_reset();
+            redirect('?');
+        }
 
-	if( isset( $_GET['action'] ) && $_GET['action'] == 'op_delete' ) {
-		$selector = get_selector();
+        if( isset( $_GET['action'] ) && $_GET['action'] == 'op_delete' ) {
+            $selector = get_selector();
 
-		foreach( $opcache['scripts'] as $key => $value ) {
-			if( !preg_match( $selector, $key) ) continue;
+            foreach( $opcache['scripts'] as $key => $value ) {
+                if( !preg_match( $selector, $key) ) continue;
 
-			opcache_invalidate( $key, empty($_GET['force'])?false:true );
-		}
-		redirect('?action=op_select&selector=' . $_GET['selector'] );
-	}
+                opcache_invalidate( $key, empty($_GET['force'])?false:true );
+            }
+            redirect('?action=op_select&selector=' . $_GET['selector'] );
+        }
+    }
 
     /********************************/
     /*              APC             */
     /********************************/
-	if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_restart' ) {
-		apcu_delete( new ApcuIterator('#.*#') );
-		redirect('?');
-	}
+    if (ENABLE_APC) {
+        if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_restart' ) {
+            apcu_delete( new ApcuIterator('#.*#') );
+            redirect('?');
+        }
 
-	if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_delete' ) {
-		apcu_delete( new ApcuIterator(get_selector()) );
-		redirect( '?action=apcu_select&selector=' . $_GET['selector'] );
-	}
+        if( isset( $_GET['action'] ) && $_GET['action'] == 'apcu_delete' ) {
+            apcu_delete( new ApcuIterator(get_selector()) );
+            redirect( '?action=apcu_select&selector=' . $_GET['selector'] );
+        }
+    }
 
     /********************************/
     /*           realpath           */
     /********************************/
-    if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_clear' ) {
-        clearstatcache(true);
-        redirect('?#realpath');
+    if (ENABLE_REALPATH) {
+        if( isset( $_GET['action'] ) && $_GET['action'] == 'realpath_clear' ) {
+            clearstatcache(true);
+            redirect('?#realpath');
+        }
     }
 ?><html>
 	<head>

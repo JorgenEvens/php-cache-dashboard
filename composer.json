@@ -13,5 +13,8 @@
             "name": "Jorgen Evens",
             "email": "jorgen@evens.eu"
         }
-    ]
+    ],
+    "scripts": {
+        "dev": "php -S 127.0.0.1:8181"
+    }
 }

@@ -1,7 +1,13 @@
 <?php
+
+    // Hides error when no default timezone has been set
+    $TZ = @date_default_timezone_get();
+    date_default_timezone_set($TZ);
+
     define('ENABLE_APC', extension_loaded('apcu') || extension_loaded('apc'));
     define('ENABLE_OPCACHE', extension_loaded('Zend OPcache'));
     define('ENABLE_REALPATH', function_exists('realpath_cache_size'));
+    define('ENABLE_MEMCACHE', extension_loaded('memcache') || extension_loaded('memcached'));
 
     if (ENABLE_APC) {
         if (!extension_loaded('apcu')) {
@@ -32,6 +38,46 @@
         }
         $realpathCacheUsed = realpath_cache_size();
         $realpathCacheTotal = machine_size(ini_get('realpath_cache_size'));
+    }
+
+    if (ENABLE_MEMCACHE) {
+        if (extension_loaded('memcached')) {
+            $memcache = new \Memcached();
+            $memcacheVersion = 'memcached';
+            $memcache->addServer('127.0.0.1', 11211);
+            $memcache_stats = $memcache->getStats();
+        } else if (extension_loaded('memcache')) {
+            $memcache = new \Memcache();
+            $memcacheVersion = 'memcache';
+            $memcache->addServer('127.0.0.1', 11211);
+            $memcache_stats = $memcache->getExtendedStats();
+        }
+
+        if( is_action('memcache_clear') ) {
+            $memcache->flush();
+            redirect('?');
+        }
+
+        if( is_action('memcache_delete') && $memcacheVersion == 'memcached' ) {
+            $list = memcache_ref();
+            $selector = get_selector();
+
+            foreach ($list as $key => $item)
+                if (preg_match($selector, $key))
+                    $memcache->delete($key);
+
+            redirect( '?action=memcache_select&selector=' . $_GET['selector'] );
+        }
+
+        if( is_action('memcache_delete') && $memcacheVersion != 'memcached' ) {
+            $memcache->delete($_GET['selector']);
+
+            redirect( '?action=memcache_view&selector=' . $_GET['selector'] );
+        }
+    }
+
+    function val_to_str($value) {
+        return htmlentities(var_export($value, true));
     }
 
     function is_action($action) {
@@ -103,6 +149,66 @@
 
 		return array();
 	}
+
+    function memcache_mem( $key ) {
+        global $memcache_stats;
+
+        if( $key == 'free' )
+            return memcache_mem('total') - memcache_mem('used');
+
+        if( $key == 'total')
+            $key = 'limit_maxbytes';
+
+        if( $key == 'used' )
+            $key = 'bytes';
+
+        if( $key == 'hash' )
+            $key = 'hash_bytes';
+
+        $result = 0;
+        foreach( $memcache_stats as $server )
+            $result += empty($server[$key]) ? 0 : $server[$key];
+
+        return $result;
+    }
+
+    function memcache_get_key($key, &$found = false) {
+        global $memcache;
+        global $memcacheVersion;
+
+        if (empty($key)) {
+            $found = false;
+            return false;
+        }
+
+        if ($memcacheVersion == 'memcache') {
+            $val = $memcache->get(array($key));
+            $found = count($val) > 0;
+            return $found ? array_pop($val) : false;
+        }
+
+        $val = $memcache->get($key, null, Memcached::GET_EXTENDED);
+        $found = $val !== false;
+        return $val['value'];
+    }
+
+    function memcache_ref() {
+        global $memcache;
+
+        // Listing keys is not supported using the legacy Memcache module
+        // PHP 7 and newer do not support this extension anymore
+        if (!extension_loaded('memcached'))
+            return array();
+
+        $items = $memcache->getAllKeys();
+
+        $keys = array();
+        foreach( $items as $item ) {
+            $keys[$item] = memcache_get_key($item);
+        }
+
+        return $keys;
+    }
 
 	function human_size( $s ) {
 		$size = 'B';
@@ -383,7 +489,7 @@
                 <?php if( is_action('apcu_view') ): ?>
                 <div>
                     <h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
-                    <pre><?=htmlentities(var_export(apcu_fetch(urldecode($_GET['selector'])), true)); ?></pre>
+                    <pre><?=val_to_str(apcu_fetch(urldecode($_GET['selector']))); ?></pre>
                 </div>
                 <?php endif; ?>
                 <?php if( is_action('apcu_select') ): ?>
@@ -474,6 +580,82 @@
                                 </tbody>
                             </table>
                         </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if(ENABLE_MEMCACHE): ?>
+                <?php $list = memcache_ref(); ?>
+                <h2 id="memcached">Memcached</h2>
+                <div>
+                    <h3>Memory <?=human_size(memcache_mem('used') + memcache_mem('hash'))?> of <?=human_size(memcache_mem('total'))?></h3>
+                    <div class="full bar green">
+                        <div class="orange" style="width: <?=percentage(memcache_mem('used'), memcache_mem('total'))?>%"></div>
+                        <div class="red" style="width: <?=percentage(memcache_mem('hash'), memcache_mem('total'))?>%"></div>
+                    </div>
+                    <div>
+                        <h3>Actions</h3>
+                        <form action="?" method="GET">
+                            <label>Cache:
+                                <button name="action" value="memcache_clear">Restart</button>
+                            </label>
+                        </form>
+                        <form action="?" method="GET">
+                            <label>Key(s):
+                                <input name="selector" type="text" value="" placeholder=".*" />
+                            </label>
+                            <?php if ($memcacheVersion == 'memcached'): ?>
+                                <button type="submit" name="action" value="memcache_select">Select</button>
+                            <?php else: ?>
+                                <button type="submit" name="action" value="memcache_view">View</button>
+                            <?php endif ?>
+                            <button type="submit" name="action" value="memcache_delete">Delete</button>
+                        </form>
+                    </div>
+
+                    <?php if( is_action('memcache_view') ): ?>
+                        <?php $value = memcache_get_key($_GET['selector'], $found); ?>
+                        <div>
+                            <h3>Value for <?=htmlentities('"'.$_GET['selector'].'"')?></h3>
+                            <?php if ($found): ?>
+                                <pre><?=val_to_str($value); ?></pre>
+                            <?php else: ?>
+                                <p>Key not found</p>
+                            <?php endif ?>
+                        </div>
+                    <?php endif ?>
+
+                    <?php if ($memcacheVersion == 'memcached'): ?>
+                        <?php if( is_action('memcache_select') ): ?>
+                            <div>
+                                <table>
+                                    <thead>
+                                    <tr>
+                                        <th><a href="<?=sort_url('key')?>">Key</a></th>
+                                        <th>Action</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach( sort_list($list) as $key => $value ):
+                                        if( !preg_match(get_selector(), $key) ) continue;?>
+                                        <tr>
+                                            <td><?=$key?></td>
+                                            <td>
+                                                <a href="?action=memcache_delete&selector=<?=urlencode('^'.$key.'$')?>">Delete</a>
+                                                <a href="?action=memcache_view&selector=<?=urlencode($key)?>">View</a>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p style="text-align: center">
+                            Legacy <a href="https://pecl.php.net/package/memcache">memcache extension</a> does not support listing keys
+                            <br />
+                            Please install the newer <a href="https://pecl.php.net/package/memcached">memcached extension</a>
+                        </p>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>

@@ -1,7 +1,7 @@
-php-cache-dashboard
+PHP Cache Dashboard
 ===================
 
-A dashboard for
+A dashboard for multiple caches in PHP
 [PHP Opcache](http://php.net/manual/en/intro.opcache.php),
 [APCu](http://php.net/manual/en/intro.apcu.php) and
 [realpath](http://php.net/manual/en/function.realpath-cache-get.php)

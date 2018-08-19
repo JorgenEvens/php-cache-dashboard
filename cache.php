@@ -51,8 +51,11 @@
             $memcache = new \Memcached();
             $memcacheVersion = 'memcached';
             $memcache->addServer(MEMCACHE_HOST, MEMCACHE_PORT);
-            if (!empty(MEMCACHE_USER) && !empty(MEMCACHE_PASSWORD))
+            if (!empty(MEMCACHE_USER) && !empty(MEMCACHE_PASSWORD)) {
+                $memcacheVersion = 'memcached-bin';
+                $memcache->setOption(Memcached::OPT_BINARY_PROTOCOL, true);
                 $memcache->setSaslAuthData(MEMCACHE_USER, MEMCACHE_PASSWORD);
+            }
             $memcache_stats = $memcache->getStats();
         } else if (extension_loaded('memcache')) {
             // This extension does not support SASL authentication
@@ -203,10 +206,11 @@
 
     function memcache_ref() {
         global $memcache;
+        global $memcacheVersion;
 
         // Listing keys is not supported using the legacy Memcache module
         // PHP 7 and newer do not support this extension anymore
-        if (!extension_loaded('memcached'))
+        if ($memcacheVersion != 'memcached')
             return array();
 
         $items = $memcache->getAllKeys();
@@ -659,6 +663,10 @@
                                 </table>
                             </div>
                         <?php endif; ?>
+                    <?php elseif($memcacheVersion == 'memcached-bin'): ?>
+                        <p style="text-align: center">
+                            When SASL authentication is enabled on the <a href="https://pecl.php.net/package/memcached">memcached extension</a> we can not support listing keys
+                        </p>
                     <?php else: ?>
                         <p style="text-align: center">
                             Legacy <a href="https://pecl.php.net/package/memcache">memcache extension</a> does not support listing keys

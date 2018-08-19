@@ -9,6 +9,12 @@
     define('ENABLE_REALPATH', function_exists('realpath_cache_size'));
     define('ENABLE_MEMCACHE', extension_loaded('memcache') || extension_loaded('memcached'));
 
+    // Memcache configuration
+    define('MEMCACHE_HOST', getenv('MEMCACHE_HOST') ?: '127.0.0.1');
+    define('MEMCACHE_PORT', getenv('MEMCACHE_PORT') ?: 11211);
+    define('MEMCACHE_USER', getenv('MEMCACHE_USER') ?: null);
+    define('MEMCACHE_PASSWORD', getenv('MEMCACHE_PASSWORD') ?: null);
+
     if (ENABLE_APC) {
         if (!extension_loaded('apcu')) {
             function apcu_cache_info($limited = false) { return apc_cache_info('user', $limited); }
@@ -44,12 +50,15 @@
         if (extension_loaded('memcached')) {
             $memcache = new \Memcached();
             $memcacheVersion = 'memcached';
-            $memcache->addServer('127.0.0.1', 11211);
+            $memcache->addServer(MEMCACHE_HOST, MEMCACHE_PORT);
+            if (!empty(MEMCACHE_USER) && !empty(MEMCACHE_PASSWORD))
+                $memcache->setSaslAuthData(MEMCACHE_USER, MEMCACHE_PASSWORD);
             $memcache_stats = $memcache->getStats();
         } else if (extension_loaded('memcache')) {
+            // This extension does not support SASL authentication
             $memcache = new \Memcache();
             $memcacheVersion = 'memcache';
-            $memcache->addServer('127.0.0.1', 11211);
+            $memcache->addServer(MEMCACHE_HOST, MEMCACHE_PORT);
             $memcache_stats = $memcache->getExtendedStats();
         }
 

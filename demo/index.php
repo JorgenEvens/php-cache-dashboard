@@ -29,8 +29,16 @@
     }
 
     if (INIT) {
+        // Memcache configuration
+        $memcache_host = getenv('MEMCACHE_HOST') ?: '127.0.0.1';
+        $memcache_port = getenv('MEMCACHE_PORT') ?: 11211;
+        $memcache_user = getenv('MEMCACHE_USER') ?: null;
+        $memcache_password = getenv('MEMCACHE_PASSWORD') ?: null;
+
         $memcache = new \Memcached();
-        $memcache->addServer('127.0.0.1', 11211);
+        $memcache->addServer($memcache_host, $memcache_port);
+        if (!empty($memcache_user) && !empty($memcache_password))
+            $memcache->setSaslAuthData($memcache_user, $memcache_password);
 
         $memcache->add('type.array', ['abc', 'def']);
         $memcache->add('type.string', 'hello-world');

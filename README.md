@@ -17,6 +17,7 @@ and one or more of the supported caches
  - PHP OpCache (opcache extension for php5, included by default in php5.5+)
  - APC or APCu extension
  - Realpath cache ( available since PHP 5.3.2+ )
+ - Memcache (partially) and Memcached extension
 
 ## Supported operations
 

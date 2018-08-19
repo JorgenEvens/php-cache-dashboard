@@ -37,8 +37,10 @@
 
         $memcache = new \Memcached();
         $memcache->addServer($memcache_host, $memcache_port);
-        if (!empty($memcache_user) && !empty($memcache_password))
+        if (!empty($memcache_user) && !empty($memcache_password)) {
+            $memcache->setOption(Memcached::OPT_BINARY_PROTOCOL, true);
             $memcache->setSaslAuthData($memcache_user, $memcache_password);
+        }
 
         $memcache->add('type.array', ['abc', 'def']);
         $memcache->add('type.string', 'hello-world');

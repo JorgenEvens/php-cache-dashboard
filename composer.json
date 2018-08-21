@@ -6,7 +6,8 @@
         "ext-apcu": "^5.1",
         "ext-Zend-OPcache": "^7.1",
         "php": "^7.1",
-        "ext-memcached": "^3.0"
+        "ext-memcached": "^3.0",
+        "ext-redis": "*"
     },
     "license": "MIT",
     "authors": [

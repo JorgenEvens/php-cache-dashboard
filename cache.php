@@ -98,29 +98,34 @@
 
     if (ENABLE_REDIS) {
         $redis = new Redis();
-        $redis->connect(REDIS_HOST, REDIS_PORT);
 
-        if (!empty(REDIS_PASSWORD))
-            $redis->auth(REDIS_PASSWORD);
+        try {
+            $redis->connect(REDIS_HOST, REDIS_PORT);
 
-        $redis_db = 0;
-        $redis_dbs = $redis->config('GET', 'databases');
-        $redis_db_select = !is_numeric(REDIS_DATABASE) && !empty($redis_dbs);
-        $redis_memory = $redis->info('memory');
+            if (!empty(REDIS_PASSWORD))
+                $redis->auth(REDIS_PASSWORD);
 
-        if (!$redis_db_select)
-            $redis_db = REDIS_DATABASE;
-        else if (!empty($_COOKIE['redis_db']))
-            $redis_db = (int)$_COOKIE['redis_db'];
+            $redis_db = 0;
+            $redis_dbs = $redis->config('GET', 'databases');
+            $redis_db_select = !is_numeric(REDIS_DATABASE) && !empty($redis_dbs);
+            $redis_memory = $redis->info('memory');
 
-        $redis->select($redis_db);
+            if (!$redis_db_select)
+                $redis_db = REDIS_DATABASE;
+            else if (!empty($_COOKIE['redis_db']))
+                $redis_db = (int)$_COOKIE['redis_db'];
 
-        if( is_action('redis_clear') ) {
+            $redis->select($redis_db);
+        } catch(RedisException $ex) {
+            // Failed to connect
+        }
+
+        if( $redis->isConnected() && is_action('redis_clear') ) {
             $redis->flushDb();
             redirect('?');
         }
 
-        if( is_action('redis_delete') ) {
+        if( $redis->isConnected() && is_action('redis_delete') ) {
             $list = redis_keys(get_selector());
 
             foreach ($list as $key => $item)
@@ -817,7 +822,7 @@
                 </div>
             <?php endif; ?>
 
-            <?php if(ENABLE_REDIS): ?>
+            <?php if(ENABLE_REDIS && $redis->isConnected()): ?>
                 <h2 id="redis">Redis</h2>
                 <div>
                     <h3>Memory <?=human_size(redis_mem('used') + redis_mem('hash'))?> of <?=human_size(redis_mem('total'))?></h3>

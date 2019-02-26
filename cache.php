@@ -177,6 +177,9 @@
         if( $key == 'hash' )
             $key = 'hash_bytes';
 
+        if (!is_array($memcache_stats))
+            return 0;
+
         $result = 0;
         foreach( $memcache_stats as $server )
             $result += empty($server[$key]) ? 0 : $server[$key];
@@ -214,6 +217,9 @@
             return array();
 
         $items = $memcache->getAllKeys();
+
+        if (!is_array($items))
+            return array();
 
         $keys = array();
         foreach( $items as $item ) {

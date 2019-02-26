@@ -45,6 +45,28 @@
         $memcache->add('type.array', ['abc', 'def']);
         $memcache->add('type.string', 'hello-world');
         $memcache->add('type.ttl.string', 'hello-world', time() + 3600);
+
+        // Redis configuration
+        $redis_host = getenv('REDIS_HOST') ?: '127.0.0.1';
+        $redis_port = getenv('REDIS_PORT') ?: 6379;
+        $redis_password = getenv('REDIS_PASSWORD') ?: null;
+        $redis_database = getenv('REDIS_DATABASE') ?: null;
+
+        $redis = new Redis();
+        try {
+            $redis->connect($redis_host, $redis_port);
+
+            if (!empty($redis_password))
+                $redis->auth($redis_password);
+
+            if (!empty($redis_database))
+                $redis->select($redis_database);
+
+            $redis->sAdd('type.set', 'abc', 'def');
+            $redis->set('type.string', 'hello-world');
+            $redis->setEx('type.ttl.string', 3600, 'hello-world');
+        } catch(Exception $ex) {}
+
     }
 
     require_once('../cache.php');

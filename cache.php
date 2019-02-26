@@ -8,12 +8,20 @@
     define('ENABLE_OPCACHE', extension_loaded('Zend OPcache'));
     define('ENABLE_REALPATH', function_exists('realpath_cache_size'));
     define('ENABLE_MEMCACHE', extension_loaded('memcache') || extension_loaded('memcached'));
+    define('ENABLE_REDIS', extension_loaded('redis'));
 
     // Memcache configuration
     define('MEMCACHE_HOST', getenv('MEMCACHE_HOST') ?: '127.0.0.1');
     define('MEMCACHE_PORT', getenv('MEMCACHE_PORT') ?: 11211);
     define('MEMCACHE_USER', getenv('MEMCACHE_USER') ?: null);
     define('MEMCACHE_PASSWORD', getenv('MEMCACHE_PASSWORD') ?: null);
+
+    // Redis configuration
+    define('REDIS_HOST', getenv('REDIS_HOST') ?: '127.0.0.1');
+    define('REDIS_PORT', getenv('REDIS_PORT') ?: 6379);
+    define('REDIS_PASSWORD', getenv('REDIS_PASSWORD') ?: null);
+    define('REDIS_DATABASE', getenv('REDIS_DATABASE') ?: null);
+    define('REDIS_SIZE', getenv('REDIS_SIZE') ?: null);
 
     if (ENABLE_APC) {
         if (!extension_loaded('apcu')) {
@@ -85,6 +93,45 @@
             $memcache->delete($_GET['selector']);
 
             redirect( '?action=memcache_view&selector=' . $_GET['selector'] );
+        }
+    }
+
+    if (ENABLE_REDIS) {
+        $redis = new Redis();
+
+        try {
+            $redis->connect(REDIS_HOST, REDIS_PORT);
+
+            if (!empty(REDIS_PASSWORD))
+                $redis->auth(REDIS_PASSWORD);
+
+            $redis_db = 0;
+            $redis_dbs = $redis->config('GET', 'databases');
+            $redis_db_select = !is_numeric(REDIS_DATABASE) && !empty($redis_dbs);
+            $redis_memory = $redis->info('memory');
+
+            if (!$redis_db_select)
+                $redis_db = REDIS_DATABASE;
+            else if (!empty($_COOKIE['redis_db']))
+                $redis_db = (int)$_COOKIE['redis_db'];
+
+            $redis->select($redis_db);
+        } catch(RedisException $ex) {
+            // Failed to connect
+        }
+
+        if( $redis->isConnected() && is_action('redis_clear') ) {
+            $redis->flushDb();
+            redirect('?');
+        }
+
+        if( $redis->isConnected() && is_action('redis_delete') ) {
+            $list = redis_keys(get_selector());
+
+            foreach ($list as $key => $item)
+                $redis->del($key);
+
+            redirect( '?action=redis_select&selector=' . $_GET['selector'] );
         }
     }
 
@@ -223,6 +270,104 @@
         return $keys;
     }
 
+    function redis_mem( $key ) {
+        global $redis_memory;
+
+        if( $key == 'free' )
+            return max(redis_mem('total') - redis_mem('used'), 0);
+
+        if( $key == 'total' && !empty($redis_memory['maxmemory']) )
+            return $redis_memory['maxmemory'];
+
+        if( $key == 'total' && !empty($redis_memory['total_system_memory']) )
+            return $redis_memory['total_system_memory'];
+
+        if( $key == 'total' && !empty(REDIS_SIZE))
+            return (int)REDIS_SIZE;
+
+        if( $key == 'total')
+            return redis_mem('used');
+
+        if ($key == 'used')
+            return $redis_memory['used_memory'];
+
+        if ($key == 'overhead' && !empty($redis_memory['used_memory_overhead']))
+            return $redis_memory['used_memory_overhead'];
+
+        return 0;
+    }
+
+    function redis_get_key($key, &$found = false) {
+        global $redis;
+
+        $type = $redis->type($key);
+        $found = $redis->exists($key);
+        $value = null;
+
+        if ($type == Redis::REDIS_STRING || $type == Redis::REDIS_NOT_FOUND)
+            $value = $redis->get($key);
+        else if ($type == Redis::REDIS_HASH)
+            $value == $redis->hgetall($key);
+        else if ($type == Redis::REDIS_LIST)
+            $value = $redis->lrange(0, -1);
+        else if ($type == Redis::REDIS_SET || $type == Redis::REDIS_ZSET) {
+            $it = null;
+            $value = array();
+
+            do {
+                $res = $redis->sscan($key, $it);
+
+                if (!is_array($res))
+                    continue;
+
+                $value = array_merge($value, $res);
+            } while ($it > 0);
+        }
+        else if ($type == Redis::REDIS_ZSET) {
+            $len = $redis->zcard($key);
+            $start = 0;
+            $value = array();
+
+            while($start < $len) {
+                $stop = $start + 99;
+
+                $res = $redis->zrange($key, $start, $stop, true);
+
+                $start += 100;
+            }
+        }
+
+        return $value;
+    }
+
+    function redis_keys($selector) {
+        global $redis;
+        $keys = array();
+
+        $it = null;
+        do {
+            $res = $redis->scan($it);
+
+            if (!is_array($res))
+                continue;
+
+            foreach ($res as $key) {
+                if (!preg_match($selector, $key))
+                    continue;
+
+                $keys[$key] = array(
+                    'key' => $key,
+                    'ttl' => $redis->ttl($key),
+                    'type' => $redis->type($key),
+                    'size' => $redis->rawCommand('memory', 'usage', $key)
+                );
+            }
+
+        } while($it > 0);
+
+        return $keys;
+    }
+
 	function human_size( $s ) {
 		$size = 'B';
 		$sizes = array( 'KB', 'MB', 'GB' );
@@ -285,7 +430,7 @@
 		return '?' . $query;
 	}
 
-	function sort_list(&$list) {
+	function sort_list($list) {
 		if( !isset( $_GET['sort'] ) )
 			return $list;
 
@@ -673,6 +818,74 @@
                             <br />
                             Please install the newer <a href="https://pecl.php.net/package/memcached">memcached extension</a>
                         </p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if(ENABLE_REDIS && $redis->isConnected()): ?>
+                <h2 id="redis">Redis</h2>
+                <div>
+                    <h3>Memory <?=human_size(redis_mem('used') + redis_mem('hash'))?> of <?=human_size(redis_mem('total'))?></h3>
+                    <div class="full bar green">
+                        <div class="orange" style="width: <?=percentage(redis_mem('used'), redis_mem('total'))?>%"></div>
+                        <div class="red" style="width: <?=percentage(redis_mem('overhead'), redis_mem('total'))?>%"></div>
+                    </div>
+                    <div>
+                        <h3>Actions</h3>
+                        <form action="?" method="GET">
+                            <label>Cache:
+                                <button name="action" value="redis_clear">Restart</button>
+                            </label>
+                        </form>
+                        <form action="?" method="GET">
+                            <label>Key(s):
+                                <input name="selector" type="text" value="" placeholder=".*" />
+                            </label>
+                            <button type="submit" name="action" value="redis_select">Select</button>
+                            <button type="submit" name="action" value="redis_delete">Delete</button>
+                        </form>
+                    </div>
+
+                    <?php if( is_action('redis_view') ): ?>
+                        <?php $value = redis_get_key(urldecode($_GET['selector']), $found); ?>
+                        <div>
+                            <h3>Value for <?=htmlentities('"'.urldecode($_GET['selector']).'"')?></h3>
+                            <?php if ($found): ?>
+                                <pre><?=val_to_str($value); ?></pre>
+                            <?php else: ?>
+                                <p>Key not found</p>
+                            <?php endif ?>
+                        </div>
+                    <?php endif ?>
+
+                    <?php if( is_action('redis_select') ): ?>
+                        <div>
+                            <table>
+                                <thead>
+                                <tr>
+                                    <th><a href="<?=sort_url('key')?>">Key</a></th>
+                                    <th><a href="<?=sort_url('size')?>">Size</a></th>
+                                    <th><a href="<?=sort_url('ttl')?>">TTL</a></th>
+                                    <th>Expires</th>
+                                    <th>Action</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach( sort_list(redis_keys(get_selector())) as $key => $item ):?>
+                                    <tr>
+                                        <td><?=$item['key']?></td>
+                                        <td><?=$item['size']?></td>
+                                        <td><?=$item['ttl']?></td>
+                                        <td><?=($item['ttl'] < 0 ? 'indefinite' : date('Y-m-d H:i', time() + $item['ttl'] ))?></td>
+                                        <td>
+                                            <a href="?action=redis_delete&selector=<?=urlencode('^'.$key.'$')?>">Delete</a>
+                                            <a href="?action=redis_view&selector=<?=urlencode($key)?>">View</a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>

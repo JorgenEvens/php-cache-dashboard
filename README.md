@@ -1,16 +1,17 @@
 PHP Cache Dashboard
 ===================
 
-A dashboard for multiple caches in PHP
+A dashboard for multiple caches in PHP with support for
 [PHP Opcache](http://php.net/manual/en/intro.opcache.php),
-[APCu](http://php.net/manual/en/intro.apcu.php) and
-[realpath](http://php.net/manual/en/function.realpath-cache-get.php)
+[APCu](http://php.net/manual/en/intro.apcu.php),
+[realpath](http://php.net/manual/en/function.realpath-cache-get.php) and
+[Redis](https://pecl.php.net/package/redis)
 
 Try it out at the [demo page](https://je-php-cache-dashboard-demo.herokuapp.com/).
 
 ## Prerequisites
 
- - PHP
+ - PHP 5.3+
 
 and one or more of the supported caches
 
@@ -18,6 +19,7 @@ and one or more of the supported caches
  - APC or APCu extension
  - Realpath cache ( available since PHP 5.3.2+ )
  - Memcache (partially) and Memcached extension
+ - Redis
 
 ## Supported operations
 
@@ -28,7 +30,7 @@ and one or more of the supported caches
  - Selecting all keys
  - Deleting keys without regular expressions
  - Sort on any data column
- - View APCu entry contents
+ - View entry contents
 
 ## Usage
 
@@ -37,7 +39,7 @@ Navigate to the page using your browser and you will receive cache information.
 
 ![Screenshot of php-cache-dashboard](http://jorgen.evens.eu/github/php-cache-dashboard.png)
 
-## Disabling caches
+## Configuring caches
 
 Information about specific caches can be disabled by setting the `ENABLE_<cache>` key to false.
 The default code tests whether the specific cache is available and supported before enabling it.
@@ -74,6 +76,27 @@ define('ENABLE_REALPATH', true);
 // Disable Realpath
 define('ENABLE_REALPATH', false);
 ```
+
+### Redis
+
+```php
+<?php
+// Enable Redis
+define('ENABLE_REDIS', true);
+
+// Disable Redis
+define('ENABLE_REDIS', false);
+```
+
+Redis configuration can be done by either changing the `REDIS_` constants or by setting the environment variables with the same name.
+
+| Environment Variable | Default | Description |
+| --- | --- | --- |
+| REDIS\_HOST | `127.0.0.1` | The hostname of the redis instance to connect to |
+| REDIS\_PORT | `6379` | The TCP port number on which Redis is listening for connections |
+| REDIS\_PASSWORD | `null` | The password used to connect |
+| REDIS\_DATABASE | `null` | Set this to the database number if you want to lock the database number |
+| REDIS\_SIZE | `null` | The size of your Redis database in bytes if total size is detected incorrectly |
 
 ## Contributing
 
